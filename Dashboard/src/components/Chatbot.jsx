@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY;
-const API_URL = 'https://api.openai.com/v1/chat/completions';
-const useAI = !!(OPENAI_KEY && OPENAI_KEY !== 'YOUR_OPENAI_API_KEY_HERE');
+// Chat uses our server API route so the OpenAI key stays on the server (never in the browser).
+const useAI = true;
 
 const MSGS_K = 'dashboard-chat-msgs';
 const TK = 'dashboard-todos', NK = 'dashboard-notes', EK = 'dashboard-events';
@@ -152,27 +151,17 @@ Notes: ${d.notes ? d.notes.substring(0, 200) : 'empty'}`;
         ...history.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
     ];
 
-    const res = await fetch(API_URL, {
+    const r = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_KEY.trim()}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages,
-            temperature: 0.3, // Lower temp to reduce hallucinations/duplication
-            max_tokens: 300
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
     });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `API error ${res.status}`);
-    }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `Chat failed (${r.status})`);
 
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content;
+    const assistantMessage = data.reply; // { role, content }
+    const text = assistantMessage?.content;
     if (!text) throw new Error('Empty response from OpenAI');
     return text;
 }
@@ -191,9 +180,8 @@ export default function Chatbot() {
             if (saved?.length) return saved;
         } catch { }
         return [{
-            id: 1, text: useAI
-                ? 'Hey! I\'m your AI assistant using OpenAI. I can manage your tasks and events or just chat. Try "add a task".'
-                : 'Hey! I need an OpenAI API key to work fully. Please check your .env file.', sender: 'bot'
+            id: 1, text: 'Hey! I\'m your AI assistant. I can manage your tasks and events or just chat. Try "add a task".',
+            sender: 'bot'
         }];
     });
     const [input, setInput] = useState('');
@@ -236,12 +224,9 @@ export default function Chatbot() {
 
                 reply = displayText || results.join('\n') || raw;
             } catch (err) {
-                console.error('OpenAI error:', err);
-                reply = `Sorry, I had trouble connecting to OpenAI. Error: ${err.message}`;
+                console.error('Chat API error:', err);
+                reply = `Sorry, I had trouble connecting to the chat. ${err?.message || 'For local dev, run: vercel dev'}`;
             }
-        } else {
-            await new Promise(r => setTimeout(r, 200));
-            reply = localFallback(q);
         }
 
         setMsgs(p => [...p, { id: Date.now() + 1, text: reply, sender: 'bot' }]);
@@ -295,10 +280,4 @@ export default function Chatbot() {
             </form>
         </>
     );
-}
-function localFallback(input) {
-    const s = input.toLowerCase().trim();
-    const d = readDashboard();
-    if (/^(hi|hello|hey)\b/.test(s)) return `Hey! I need an OpenAI key to help fully.`;
-    return 'Please add your OpenAI API key to the .env file.';
 }
