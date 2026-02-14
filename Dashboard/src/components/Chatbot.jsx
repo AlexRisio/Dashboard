@@ -6,11 +6,20 @@ const useAI = true;
 
 const MSGS_K = 'dashboard-chat-msgs';
 const TK = 'dashboard-todos', NK = 'dashboard-notes', EK = 'dashboard-events';
+// Same default events as Calendar so we never overwrite them when storage was empty
+const DEFAULT_EVENTS = [
+    { id: 1, date: '2026-02-14', title: "Valentine's Day" },
+    { id: 2, date: '2026-02-17', title: 'Team celebration' },
+    { id: 3, date: '2026-02-20', title: 'Project review' },
+];
 function readDashboard() {
     let todos = [], notes = '', events = [];
     try { todos = JSON.parse(localStorage.getItem(TK) || '[]'); } catch { }
     try { notes = localStorage.getItem(NK) || ''; } catch { }
-    try { events = JSON.parse(localStorage.getItem(EK) || '[]'); } catch { }
+    try {
+        const raw = JSON.parse(localStorage.getItem(EK) || 'null');
+        events = Array.isArray(raw) && raw.length > 0 ? raw : DEFAULT_EVENTS;
+    } catch { events = DEFAULT_EVENTS; }
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const weather = localStorage.getItem('dashboard-weather-state') || 'Unknown';

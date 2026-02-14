@@ -17,8 +17,19 @@ const Q = [
 
 export default function Quote() {
     const [q, setQ] = useState(null);
-    const shuffle = useCallback(() => { setQ(Q[Math.floor(Math.random() * Q.length)]); }, []);
-    useEffect(() => { shuffle(); }, [shuffle]);
+    const shuffle = useCallback(() => {
+        const currentIndex = q ? Q.findIndex((item) => item.t === q.t) : -1;
+        let nextIndex = Math.floor(Math.random() * Q.length);
+        if (Q.length > 1 && currentIndex >= 0) {
+            while (nextIndex === currentIndex) {
+                nextIndex = Math.floor(Math.random() * Q.length);
+            }
+        }
+        setQ(Q[nextIndex]);
+    }, [q]);
+    useEffect(() => {
+        setQ(Q[Math.floor(Math.random() * Q.length)]);
+    }, []);
 
     return (
         <>
@@ -38,7 +49,7 @@ export default function Quote() {
                 )}
             </AnimatePresence>
             <motion.button className="btn-s" onClick={shuffle} style={{ marginTop: 14 }}
-                whileTap={{ scale: 0.92, rotate: 180 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }}
+                whileTap={{ scale: 0.92 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }}
             >New Quote</motion.button>
         </>
     );
